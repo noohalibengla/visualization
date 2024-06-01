@@ -88,13 +88,10 @@ Country_GP$Country_name <- recode(Country_GP$Country_name,
 
 Country_GP$Country_name <- countrycode(Country_GP$Country_name, "country.name", "country.name")
 
-# Load the world map data
 world <- ne_countries(scale = "medium", returnclass = "sf")
 
-# Merge your data with the world map data
 world <- left_join(world, Country_GP, by = c("name" = "Country_name"))
 
-# Plot the map
 map_plot <- ggplot(data = world) +
   geom_sf(aes(fill = Production)) +
   scale_fill_continuous(name = "Production", low = "pink", high = "darkblue", na.value = "lightgrey") +
@@ -107,9 +104,7 @@ map_plot <- ggplot(data = world) +
     axis.title = element_blank()
   )
 
-# Display the plot
-print(map_plot)
-
+map_plot
 ```
  
 It's clear from the Map that China followed by India are the major producers of grains. We don't have production data of the countries with grey shades.<br><br>
@@ -125,14 +120,11 @@ As China is the major producer of grains in the world, Lets visualize their grai
 ```{r scatterplot}
 library(ggplot2)
 
-# Filter data for India
 china <- subset(GPnew, Country_name == "China")
 
-# Convert variables to appropriate types if needed
 china$Year_of_production <- as.factor(china$Year_of_production)
 china$Grain_name <- as.factor(china$Grain_name)
 
-# Plot the dots
 ggplot(china, aes(x = Total_production, y =Area_of_production)) +
   geom_point(aes(color = Year_of_production, shape = Grain_name, size = Cost_of_production/Total_production)) +
   scale_color_discrete(name = "Year of Production") +
