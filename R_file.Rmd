@@ -1,0 +1,236 @@
+---
+title: 'Visualization : Grain Production'
+author: "Nooh Ali"
+output: 
+  html_document: default
+  word_document: default
+  pdf_document: default
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE, fig.height = 8, fig.width = 12 )
+
+```
+
+<br>
+<h1> Introduction </h1>
+This project aims at exploring Country-wise Grain production from 2005 to 2015 and analysing them. We utilize packages from R like ggplot2 inorder to recognize the various factors. We extract relevant information from the data using different visualization techniques such as Maps, bar charts, line charts, pie chart, scatter Plot etc.
+
+<br>
+<h1>Data Description</h1>
+The data set is downloaded from Kaggle. There are seven variables out of which three are categorical namely Continent, Country_name and Grain_name. Left are numerical namely Year_of_production, Total_production, Area_of_production and Cost_of_production. Total_production, Area_of_production and Cost_of_production are in thousand tons, hectares and thousand US dollars respectively.<br>
+
+```{r dataloading}
+library(dplyr)
+library(ggplot2)
+library(ggrepel)
+library(DT)
+library(sf)
+library(rvest)
+library(viridis)
+library(ggthemes)
+library(rgdal)
+library(countrycode)
+library(rnaturalearthdata)
+library(rnaturalearth)
+library(RColorBrewer)
+
+GrainPrd = read.csv("C:/Users/nooha/Downloads/Projects/Visualization/GrainProduction.csv")
+
+d = GrainPrd
+colnames(d) <- c("Continent", "Country", "Grain", "Year", "Production", "Area", "Cost")
+for(i in 1:6){
+  d[i,] = GrainPrd[floor(runif(1, min = 2, max =10539)),]
+}
+datatable(head(d),height=200, options=list(scrollX=TRUE,dom = "t"))
+```
+<br><br><br><br><br><br><br>
+<h1>Data Pre-processing</h1>
+
+```{r preprocess}
+count = 0
+for(i in as.data.frame(t(GrainPrd))){
+  for(j in i){
+    if(is.na(j)){
+      count = count+1
+      break
+    } 
+  }
+}
+```
+```{r}
+GPnew = na.omit(GrainPrd)
+```
+
+The total number of rows with atleast a null value in any column is 18. 18 rows out of 10539 rows is relatively small and can be ignored. Hence these rows are dropped and the new dataframe with 10521 rows and 7 columns obtained is used for further analysis and visualization.
+<br><br><br><br><br><br><br>
+<br><h1>Graphical presentation of Key variables</h1>
+<h2>Grain Production of major grains</h2><br>
+The below map shows the
+Total production of major grains
+from year 2005 to 2015 of different countries.
+```{r map}
+
+Country_GP = summarise(group_by(GPnew, Country_name), Production = sum(Total_production))
+
+Country_GP$Country_name <- recode(Country_GP$Country_name,
+                                "Bosnia & Herzegovina" = "Bosnia and Herzegovina",
+                                "Congo - Kinshasa" = "Democratic Republic of the Congo",
+                                "Congo - Brazzaville" = "Republic of Congo",
+                                "Czechia" = "Czech Republic",
+                                "Eswatini" = "Swaziland",
+                                "Myanmar (Burma)" = "Myanmar",
+                                "North Macedonia" = "Macedonia",
+                                "St. Vincent & Grenadines" = "Saint Vincent and the Grenadines",
+                                "São Tomé & Príncipe" = "Sao Tome and Principe",
+                                "Trinidad & Tobago" = "Trinidad and Tobago")
+
+
+Country_GP$Country_name <- countrycode(Country_GP$Country_name, "country.name", "country.name")
+
+# Load the world map data
+world <- ne_countries(scale = "medium", returnclass = "sf")
+
+# Merge your data with the world map data
+world <- left_join(world, Country_GP, by = c("name" = "Country_name"))
+
+# Plot the map
+map_plot <- ggplot(data = world) +
+  geom_sf(aes(fill = Production)) +
+  scale_fill_continuous(name = "Production", low = "pink", high = "darkblue", na.value = "lightgrey") +
+  theme_minimal() +
+  labs(title = "Total Grain Production") +
+  theme(
+    panel.background = element_rect(fill = "white"),
+    axis.text = element_blank(),
+    axis.ticks = element_blank(),
+    axis.title = element_blank()
+  )
+
+# Display the plot
+print(map_plot)
+
+```
+ 
+It's clear from the Map that China followed by India are the major producers of grains. We don't have production data of the countries with grey shades.<br><br>
+
+<h2> Grain production in China</h2><br>
+As China is the major producer of grains in the world, Lets visualize their grain production
+<br> From the below graph, We can conclude the following:<br>
+<ul><li>China mainly produces Corn, followed by Wheat and Rice.</li>
+<li>Atleast in China, Production density of Wheat and Rice is lower than Corn.</li>
+<li>Even though the production of Oats is incomparable in China, but compared to any other grains cost of production of Oats is much higher.</li>
+<li>Total production of grains is neither increasin nor decreasing over the years.</li></ul>
+
+```{r scatterplot}
+library(ggplot2)
+
+# Filter data for India
+china <- subset(GPnew, Country_name == "China")
+
+# Convert variables to appropriate types if needed
+china$Year_of_production <- as.factor(china$Year_of_production)
+china$Grain_name <- as.factor(china$Grain_name)
+
+# Plot the dots
+ggplot(china, aes(x = Total_production, y =Area_of_production)) +
+  geom_point(aes(color = Year_of_production, shape = Grain_name, size = Cost_of_production/Total_production)) +
+  scale_color_discrete(name = "Year of Production") +
+  scale_shape_manual(name = "Grain Name", values = c(1, 5, 15, 20, 25)) +
+  scale_size_continuous(name = "Cost of Production for a ton") +
+  labs(title = "Scatter Plot with Multiple Aesthetics",
+       x = "Production",
+       y = "Area") +
+  theme_minimal()
+
+```
+
+
+<h2> Grain production in India</h2>
+As India is the second major player in the production of grains. Let's try to explore it.
+```{r histogram}
+india =  GPnew[GPnew$Country_name == 'India',]
+ggplot(india, aes(x = factor(Year_of_production), y = Total_production, fill = Grain_name)) +
+  geom_histogram(stat = "identity", position = "stack") +
+  labs(title = "Total Grain Production in India by Year",
+       x = "Year of Production",
+       y = "Total Production in 1000tons",
+       fill = "Grain Name") +
+  theme_minimal()+
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  scale_fill_brewer(palette = "Set3")
+```
+
+<br> From the above graph, its clear that India mainly produce Wheat followed by Rice, Corn. Even though they produce Oats and Barley, its production quantity is incomparable to Wheat, Rice, Corn So the green and violet colour is hardly visible.<br>
+
+
+<h2>Production of Major Grains</h2>
+<br>
+```{r bargraph}
+GrainsP = summarise(group_by(GPnew, Grain_name), Production = sum(Total_production))
+
+ggplot(data = GrainsP, aes(x = Grain_name, y = Production)) +
+  geom_bar(stat = "identity", fill = "#790252") +
+  labs(title = "Grain Production", x = "Grain Name", y = "Production") +
+  theme_minimal()
+```
+<br>
+From the Bar graph we can easily say that Corn is the major grain, followed by Wheat and Rice.<br>
+<h2>Proportion of Corn Production</h2>
+<br>
+Since Corn is the major grain, We are looking into the contribution of each continent to the Corn production. 
+<br>
+For the transcontinental countries, we assume that the production is uniform over the land.That is we are sharing the Production of such countries into the continents it belongs in the ratio of its land to those continents. From the below Pie Chart, it's clear that Asia produces 78% of the Corn. Then, followed by Africa and South America.<br>
+<br><br><br><br>
+```{r piechart}
+Corn = GPnew[GPnew$Grain_name == "Corn",]
+CornCo = summarise(group_by(Corn, Continent), Production = sum(Total_production))
+
+r_production <- CornCo[CornCo$Continent == "Europe/Asia",]$Production
+t_production <- CornCo[CornCo$Continent == "Asia/Europe",]$Production
+
+CornCo <- CornCo[CornCo$Continent != "Europe/Asia",]
+CornCo <- CornCo[CornCo$Continent != "Asia/Europe",]
+
+CornCo[CornCo$Continent == "Asia", "Production"] <- CornCo[CornCo$Continent == "Asia", "Production"] + 0.77*r_production + 0.97*t_production
+
+CornCo[CornCo$Continent == "Europe", "Production"] <- CornCo[CornCo$Continent == "Europe", "Production"] + 0.23*r_production + 0.03*t_production
+
+
+ggplot(CornCo, aes(x = "", y = Production, fill = Continent)) +
+  geom_bar(stat = "identity") +
+  coord_polar("y", start = 0) +
+  labs(title = "Production of Corn",
+       fill = "Continents",
+       x = NULL, y = NULL) +
+  theme_void() +
+  theme(legend.position = "right") +
+  geom_text(aes(label = paste0(round(Production/sum(Production)*100,2), "%")),
+            position = position_stack(vjust = 0.5),
+            color = "black", size = 4) +
+  scale_fill_manual(values = c('#FBF8CC', '#FFCFD2', '#B9FBC0','#957DAD','#B7D3DF','#DEAAAD'))
+```
+<h2>Time Series Analysis of Major Grains</h2>
+```{r linegraph}
+agg_data <- (GPnew %>% filter(Grain_name %in% c("Corn","Wheat","Rice"))) %>%
+  group_by(Year_of_production, Grain_name) %>%
+  summarise(Total_production = sum(Total_production)) %>%
+  ungroup()
+
+# Create the line plot
+ggplot(agg_data, aes(x = Year_of_production, y = Total_production, color = Grain_name)) +
+  geom_line() +
+  geom_point() +
+  labs(title = "Total Production of Grains Over Years",
+       x = "Year of Production",
+       y = "Total Production") +
+  theme_minimal()
+
+```
+From the Time Series Analysis, We can generally say that there is  no increase in the production of Major Grains. 
+
+<br><br><br>
+<h1>Summary</h1>
+<ul><li> China is the major producer of grains, followed by India. China mainly produces Corn, followed by Wheat and Rice. Atleast in China, Production density of Wheat and Rice is lower than Corn. Even though the production of Oats is incomparable in China, but compared to any other grains cost of production of Oats is much higher.</li>
+<li>India mainly produce Corn followed by Rice, Wheat. Production of other grains is incomparable.</li>
+<li>There is  no increase in the production of Major Grains.The line graph warns of a potential food crisis, as the population grows while the food output shrinks.</li>
